@@ -1,0 +1,11 @@
+Automat==0.6.0
+SQLAlchemy==1.2.0b3
+Twisted==17.9.0
+attrs==17.3.0
+constantly==15.1.0
+hyperlink==17.3.1
+incremental==17.5.0
+python-chess==0.22.0
+six==1.11.0
+wsgiref==0.1.2
+zope.interface==4.4.3
