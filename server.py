@@ -8,12 +8,14 @@ from twisted.web import server
 import logging, argparse, traceback
 
 import game_core
-
+import http
 
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d %I:%M:%S %p', level=logging.DEBUG)
 parser = argparse.ArgumentParser(description='Chess server.')
 parser.add_argument("port", type=int, help="Port on which to listen for connections")
+parser.add_argument("--http_port", type=int, default=8080, help="Serve details on the active games over http on this port")
+
 args = parser.parse_args()
 
 manager = game_core.Manager()
@@ -99,11 +101,23 @@ def send_clock_updates():
 send_clock_updates()
 
 
+# line server
 factory = Factory()
 factory.protocol = ChessServer
 factory.clients = []
 reactor.listenTCP(args.port, factory)
+
+#dynamic HTTP
+reactor.listenTCP(args.http_port, server.Site(http.HttpRoot(manager)))
+
 reactor.run()
+
+
+
+
+
+
+
 
 
 
