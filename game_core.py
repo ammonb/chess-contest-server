@@ -1,5 +1,7 @@
-import random
 import chess
+import chess.pgn
+
+import random
 import time
 import uuid
 import logging
@@ -26,6 +28,20 @@ class BasePlayer(object):
         self.current_game = None
         self.observing_games = []
 
+    def format_message(self, action, message):
+        if len(message):
+            return "%s %s\n" % (action.upper(), message)
+        else:
+            return "%s\n" % (action.upper(),)
+
+    def parse_message(self, input):
+        if " " in input:
+            action, message = input.split(" ", 1)
+        else:
+            action, message = input, ""
+        return action.upper(), message.strip()
+
+
     def send_message(self, action, message):
         raise Exception("Not Implemented")
 
@@ -38,6 +54,8 @@ class Manager(object):
         self.tournaments = {}
 
     def create_tournament(self, tournament_name, games_per_pair, time_limit, increment):
+        tournament_name = tournament_name.strip()
+        assert all ((c.isalnum() or c in "_-!") for c in tournament_name), "Bad character in tournament name"
         assert not tournament_name in self.tournaments, "Tournament of name %s already exists" % (tournament_name,)
         self.tournaments[tournament_name] = Tournament(tournament_name, games_per_pair, time_limit, increment)
 
@@ -102,6 +120,7 @@ class Manager(object):
         for t in self.tournaments.values():
             t.send_clock_updates()
 
+
 class Tournament(object):
     def __init__(self, name, games_per_pair, time_limit, increment):
         self.name = name
@@ -110,6 +129,7 @@ class Tournament(object):
         self.increment = increment
         self.players = {}
         self.games = {}
+        self.created_at = time.time()
 
     def message_recieved(self, player, action, message):
         assert len(message), "No game id provided"
@@ -182,6 +202,7 @@ class Tournament(object):
 
     def start_game(self, white_player, black_player):
         game = Game(white_player, black_player, self.time_limit, self.increment)
+        game.pgn.headers['Event']  = self.name
         self.games[game.id] = game
         white_player.current_game = game
         black_player.current_game = game
@@ -192,7 +213,10 @@ class Tournament(object):
 
     def get_standings(self):
         standings = {}
-        for game in self.game:
+        for p in self.players:
+            standings[p] = {"played" : 0, "score" : 0}
+
+        for game in self.games.values():
             if game.state == GameState.FINISHED:
                 for i,p in enumerate(game.players):
                     standings[p.name] = standings.get(p.name, {"played" : 0, "score" : 0})
@@ -206,10 +230,20 @@ class Tournament(object):
             return self.games[game_id]
         return None
 
+    def compleated_games(self):
+        return [g for g in self.games.values() if g.state == GameState.FINISHED]
+
+    def active_games(self):
+        return [g for g in self.games.values() if g.state == GameState.IN_PROGRESS]
+
+    def all_games(self):
+        return self.compleated_games() + self.active_games()
+
 
 
 class Game(object):
     def __init__(self, white_player, black_player, time_limit, increment):
+        self.time_limit = time_limit
         self.increment = increment
         self.times = [float(time_limit), float(time_limit)]
         self.players = [white_player, black_player]
@@ -218,11 +252,21 @@ class Game(object):
 
         self.cur_move_started_at = 0.0
         self.cur_index = 0
-        self.board = chess.Board()
+
         self.id = uuid.uuid1().hex
 
         self.state = GameState.NEEDS_ACK
         self.created_at = time.time()
+
+        self.board = chess.Board()
+        self.pgn = chess.pgn.Game()
+        self.pgn.setup(self.board)
+        self.pgn.headers.clear()
+        self.pgn.headers['Result'] = "*"
+        self.pgn.headers['White']  = white_player.name
+        self.pgn.headers['Black']  = black_player.name
+
+        self.pgn_node = self.pgn
 
         self.observers = []
 
@@ -269,9 +313,12 @@ class Game(object):
                 return False
         elif self.state == GameState.IN_PROGRESS:
             thinking_time = time.time() - self.cur_move_started_at
-            if self.times[self.cur_index] < thinking_time:
+            if self.times[self.cur_index] <= thinking_time:
                 # thinking player is out of time!
-                self.times[self.cur_index] = 0.0
+                self.times = self.updated_times()
+                self.cur_move_started_at = time.time()
+                self.send_clock_updates()
+
                 self.outcomes[self.cur_index] = 0
                 self.outcomes[(self.cur_index + 1)%2] = 1
                 self.status = "Out of time"
@@ -279,9 +326,18 @@ class Game(object):
                 return False
         return True
 
-    def send_clock_updates(self):
+    def outcome_str(self):
+        if self.state != GameState.FINISHED:
+            return ""
+        return "Game over: %s-%s %s" % (self.outcomes[0], self.outcomes[1], self.status)
+
+    def game_state_str(self):
         times = self.updated_times()
-        self.send_all("CLOCK_UPDATE", "%s %s %s" % (self.id, times[0], times[1]))
+        return "%s %s %s %0.2f %0.2f %s" % (self.id, self.players[0].name, self.players[1].name, times[0], times[1], self.board.fen())
+
+    def send_clock_updates(self):
+        self.send_all("CLOCK_UPDATE", self.game_state_str())
+
 
     def abort(self, reason):
         self.state = GameState.ABORTED
@@ -300,8 +356,7 @@ class Game(object):
         self.game_over()
 
     def send_game_started_message(self):
-        message = "%s %s %s %s" % (self.id, self.players[0].name, self.players[1].name, self.board.fen())
-        self.send_all("GAME_STARTED", message)
+        self.send_all("GAME_STARTED", self.game_state_str())
 
     def player_disconnected(self, player):
         if player == self.players[0]:
@@ -315,7 +370,7 @@ class Game(object):
     def add_observer(self, observer):
         logging.info("Adding observer to game %s" % (self.id,))
         times = self.updated_times()
-        observer.send_message("GAME_STATE", "%s %s %s %s %s %s" % (self.id, self.players[0].name, self.players[1].name, times[0], times[1], self.board.fen()))
+        observer.send_message("GAME_STATE", self.game_state_str())
         self.observers.append(observer)
         observer.observing_games.append(self)
 
@@ -338,8 +393,6 @@ class Game(object):
             p.state = PlayerState.WAITING_PAIRING
 
 
-
-
     def player_acknowledged(self, player):
         player.state = PlayerState.IN_GAME_ACKED
         if all (p.state == PlayerState.IN_GAME_ACKED for p in self.players):
@@ -360,7 +413,10 @@ class Game(object):
     # game times updated for how long the current player has been thinking
     def updated_times(self):
         times = self.times[:]
+        if self.state != GameState.IN_PROGRESS:
+            return times
         times[self.cur_index] -= (time.time() - self.cur_move_started_at)
+        times[self.cur_index] = max(times[self.cur_index], 0)
         return times
 
     def get_move_from_current_player(self):
@@ -418,12 +474,15 @@ class Game(object):
             return
         else:
             self.board.push(engine_move)
+            self.pgn_node = self.pgn_node.add_variation(engine_move)
 
         self.times = self.updated_times()
         self.cur_move_started_at = time.time()
         self.times[self.cur_index] += self.increment
 
-        message = "%s %s %s %s" % (self.id, self.current_player().name, clean_move, self.board.fen())
+
+
+        message = "%s %s %s %s" % (self.id, self.current_player().name, clean_move, " ".join(self.game_state_str().split(" ")[1:]))
         self.send_all("PLAYER_MOVED", message)
 
         if self.board.is_checkmate():
