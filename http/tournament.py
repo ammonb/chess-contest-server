@@ -2,6 +2,7 @@ from twisted.web.resource import Resource
 from twisted.web.resource import NoResource
 from twisted.web.static import File
 from game_resource import GameResource
+from human_client import HumanClient
 
 import datetime
 
@@ -15,7 +16,7 @@ class Tournament(Resource):
         if name == '':
             return self
         elif name == 'play':
-            pass
+            return HumanClient(self.tournament)
         else:
             if not name in self.tournament.games:
                 return NoResource("No game with id %s found" % name)

@@ -23,7 +23,7 @@ parser.add_argument("--websocket_port", type=int, default=8081, help="Serve deta
 args = parser.parse_args()
 
 manager = game_core.Manager()
-manager.create_tournament("a", 2, 60*1, 0)
+manager.create_tournament("a", 2, 60*5, 0)
 
 
 class LineReceiverPlayer(game_core.BasePlayer):

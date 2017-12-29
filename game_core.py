@@ -19,6 +19,9 @@ class GameState:
     FINISHED     = 2
     ABORTED      = 3
 
+WAIT_BEFORE_ABORTING = 20
+WAIT_BETWEEN_GAMES = 5
+
 #base class for various types of connections to the server
 class BasePlayer(object):
     def __init__(self):
@@ -27,6 +30,7 @@ class BasePlayer(object):
         self.state = PlayerState.CONNECTING
         self.current_game = None
         self.observing_games = []
+        self.last_game_done = time.time() - WAIT_BETWEEN_GAMES
 
     def format_message(self, action, message):
         if len(message):
@@ -180,20 +184,21 @@ class Tournament(object):
 
 
     def update_pairings(self):
-        free_players = [p for p in self.players.values() if p.state == PlayerState.WAITING_PAIRING]
+        free_players = [p for p in self.players.values() if p.state == PlayerState.WAITING_PAIRING and time.time() - p.last_game_done > WAIT_BETWEEN_GAMES]
         random.shuffle(free_players)
         for i, p1 in enumerate(free_players):
             for p2 in free_players[i+1:]:
-                if p1.state == PlayerState.WAITING_PAIRING and p2.state == PlayerState.WAITING_PAIRING:
+                if p1.state != PlayerState.WAITING_PAIRING or p2.state != PlayerState.WAITING_PAIRING:
+                    continue
 
-                    wb = self.get_pairing_count(p1, p2)
-                    bw = self.get_pairing_count(p2, p1)
+                wb = self.get_pairing_count(p1, p2)
+                bw = self.get_pairing_count(p2, p1)
 
-                    if wb+bw < self.games_per_pair:
-                        if wb < bw:
-                            self.start_game(p1, p2)
-                        else:
-                            self.start_game(p2, p1)
+                if wb+bw < self.games_per_pair:
+                    if wb < bw:
+                        self.start_game(p1, p2)
+                    else:
+                        self.start_game(p2, p1)
 
     def send_clock_updates(self):
         for game in self.games.values():
@@ -307,7 +312,7 @@ class Game(object):
 
     def check_timeout(self):
         if self.state == GameState.NEEDS_ACK:
-            if time.time() - self.created_at > 20:
+            if time.time() - self.created_at > WAIT_BEFORE_ABORTING:
                 logging.info("Game %s timed out before ack. Aborting..." % self.id)
                 self.abort("Not acked by both players within time limit")
                 return False
@@ -344,8 +349,11 @@ class Game(object):
         self.status = "Game aborted"
 
         self.send_all("GAME_ABORTED", reason)
+        self.send_all("INFO", "Game aborted: %s" % (reason,))
+
         for p in self.players:
             p.current_game = None
+            p.last_game_done = time.time()
             p.state = PlayerState.WAITING_PAIRING
 
     def resign(self, player):
@@ -356,6 +364,7 @@ class Game(object):
         self.game_over()
 
     def send_game_started_message(self):
+        self.send_all("INFO", "Game started");
         self.send_all("GAME_STARTED", self.game_state_str())
 
     def player_disconnected(self, player):
@@ -387,9 +396,12 @@ class Game(object):
         #send message
         message = "%s %s-%s %s" % (self.id, self.outcomes[0], self.outcomes[1], self.status)
 
+        self.send_all("INFO", self.outcome_str())
+
         self.send_all("GAME_OVER", message)
         for p in self.players:
             p.current_game = None
+            p.last_game_done = time.time()
             p.state = PlayerState.WAITING_PAIRING
 
 
@@ -423,7 +435,7 @@ class Game(object):
         player = self.players[self.cur_index]
         times = self.updated_times()
 
-        player.send_message("YOUR_MOVE", "%s %s %s %s" % (self.id, times[0], times[1], self.board.fen()))
+        player.send_message("YOUR_MOVE", self.game_state_str())
 
     def clean_move(self, player, move):
         move = move.strip()
@@ -444,6 +456,11 @@ class Game(object):
 
         return move
 
+    def uci_move(self, clean_move):
+        m = "".join(clean_move.split("-"))
+        m = "".join(m.split("="))
+        return m.lower()
+
     def is_draw(self):
         if self.board.is_stalemate():
             return True, "Stalemate"
@@ -455,7 +472,6 @@ class Game(object):
             return True, "Fifty moves without capture or pawn push"
         return False, ""
 
-
     def make_move(self, player, move):
         if player != self.current_player():
             player.send_message("INFO", "Ignoring message. It's not your move")
@@ -466,8 +482,9 @@ class Game(object):
             return
 
         clean_move = self.clean_move(player, move)
-        uci_move = "".join(clean_move.split("-"))
+        uci_move = self.uci_move(clean_move)
         engine_move = chess.Move.from_uci(uci_move)
+
         if not engine_move in self.board.legal_moves:
             player.send_message("INFO", "Move %s is not legal" % (move,))
             self.get_move_from_current_player()

@@ -12,8 +12,6 @@ class GameResource(Resource):
     def getChild(self, name, request):
         if name == '':
             return self
-        elif name == 'static':
-            return File('./static/')
         else:
             return NoResource()
 
@@ -39,12 +37,10 @@ class GameResource(Resource):
             <script src="js/game_lib.js"></script>
             <script>
                 window.onload = function() {{
-                    var board = ChessBoard('board');
                     var status_div = document.getElementById("status_div");
                     var white_name_div = document.getElementById("white_name");
                     var black_name_div = document.getElementById("black_name");
-                    var pgn_div = document.getElementById("game_pgn");
-                    observe_game(board, "{game_id}", status_div, white_name_div, black_name_div, pgn_div);
+                    observe_game("{game_id}", status_div, white_name_div, black_name_div);
                 }}
             </script>
             </body>

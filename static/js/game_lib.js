@@ -7,9 +7,20 @@ function send_message(socket, action, message) {
 }
 
 
-function observe_game(board, game_id, status_div, white_name_div, black_name_div, pgn_div) {
-    var socket = new WebSocket("ws://127.0.0.1:8081");
+function observe_game(game_id, status_div, white_name_div, black_name_div) {
+    manage_game("", "", game_id, status_div, white_name_div, black_name_div, false);
+}
+
+function play_games(tournament_name, player_name, join_button, status_div, white_name_div, black_name_div) {
+    manage_game(tournament_name, player_name, "", status_div, white_name_div, black_name_div, true);
+}
+
+function manage_game(tournament_name, player_name, game_id, status_div, white_name_div, black_name_div, play) {
+    var socket = new WebSocket("ws://" + window.location.hostname + ":8081");
+
     var white_to_move = false;
+    var you_are_white = true;
+    var your_move = false;
 
     var white_name = "";
     var black_name = "";
@@ -20,13 +31,65 @@ function observe_game(board, game_id, status_div, white_name_div, black_name_div
     var move_sound = new Audio('audio/move.mp3');
     var gameover_sound = new Audio('audio/gameover.mp3');
 
+    var board = ChessBoard('board', {onDrop: piece_moved, draggable: true});
+
+    function piece_moved(source, target, piece, newPos, oldPos, orientation) {
+        if (!your_move || target==='offboard') {
+            return 'snapback';
+        }
+        var move = source + "-" + target;
+        if ((piece === "wP" || piece === "bP") && (target.charAt(1) === '1' || target.charAt(1) === '8')) {
+            move += "=Q";
+        }
+
+        console.log("Source: " + source);
+        console.log("Target: " + target);
+        console.log("Piece: " + piece);
+        console.log("Move: " + move);
+        send_message(socket, "MOVE", game_id + " " + move);
+    }
+
+    var time_update_id = null;
+    function _dead_reckon_time() {
+        if (white_to_move) {
+            white_time -= 1.0;
+        } else {
+            black_time -= 1.0;
+        }
+        update_time_labels();
+        time_update_id = setTimeout(_dead_reckon_time, 1000);
+    }
+    function start_dead_reckon_time() {
+        if (time_update_id !== null) return;
+        time_update_id = setTimeout(_dead_reckon_time, 1000);
+    }
+
+    function stop_dead_reckon_time() {
+        if (time_update_id === null) return;
+        window.clearTimeout(time_update_id);
+        time_update_id = null;
+    }
+    function reset_dead_reckon_time() {
+        stop_dead_reckon_time();
+        start_dead_reckon_time();
+    }
+
     socket.onopen = function (event) {
-        send_message(socket, "WATCH", game_id);
+        if (play) {
+            send_message(socket, "JOIN", tournament_name + " " + player_name);
+        } else {
+            send_message(socket, "WATCH", game_id);
+        }
+        status_div.innerHTML = "Connected";
     }
 
     function update_time_labels(message_parts) {
-        white_name_div.innerHTML = white_name + ": " + white_time;
-        black_name_div.innerHTML = black_name + ": " + black_time;
+
+
+
+
+        white_name_div.innerHTML = white_name + ": " + Math.round(white_time * 100) / 100;
+        black_name_div.innerHTML = black_name + ": " + Math.round(black_time * 100) / 100;
         if (white_to_move) {
             white_name_div.innerHTML = "<b>" + white_name_div.innerHTML + "</b>"
         } else {
@@ -39,94 +102,54 @@ function observe_game(board, game_id, status_div, white_name_div, black_name_div
         var parts = event.data.split(" ");
         var action = parts.shift();
         var message = parts.join(" ").trim();
-        var message_parts = message.split(" ").filter(word => word.length > 0)
+        var message_parts = message.split(" ").filter(word => word.length > 0);
+
+        function do_state_update() {
+            start_index = 1;
+            white_name = message_parts[0 + start_index];
+            black_name = message_parts[1 + start_index];
+            white_time = Number(message_parts[2 + start_index]);
+            black_time = Number(message_parts[3 + start_index]);
+            update_time_labels();
+
+            var fen = message_parts.slice(4 + start_index, message_parts.length).join(" ")
+            board.position(fen);
+            white_to_move = (message_parts[5 + start_index] === "w" || message_parts[5 + start_index] === "W")
+        }
 
         if (action === "INFO") {
             status_div.innerHTML = message;
         } else if (action === "GAME_STATE") {
-            var fen = message_parts.slice(5, message_parts.length).join(" ");
-            board.position(fen);
-            white_to_move = (message_parts[6] === "w" || message_parts[6] === "W")
-            white_name = message_parts[1];
-            black_name = message_parts[2];
-            white_time = Number(message_parts[3]);
-            black_time = Number(message_parts[4]);
-            update_time_labels();
+            do_state_update();
         } else if (action === "CLOCK_UPDATE") {
-            white_time = Number(message_parts[3]);
-            black_time = Number(message_parts[4]);
-            update_time_labels();
-
+            do_state_update();
+            reset_dead_reckon_time();
         } else if (action === "GAME_OVER") {
             gameover_sound.play();
-            status_div.innerHTML = "Game over: " + message_parts.slice(1, message_parts.length).join(" ")
+            your_move = false;
+            stop_dead_reckon_time();
         } else if (action === "PLAYER_MOVED") {
             move_sound.play();
             var fen = message_parts.slice(7, message_parts.length).join(" ");
-            console.log("fen: " + fen);
             white_to_move = !white_to_move;
             white_time = Number(message_parts[5])
             black_time = Number(message_parts[6])
             update_time_labels();
             board.position(fen);
+            your_move = false;
+
+            reset_dead_reckon_time();
+        } else if (action === "GAME_STARTED") {
+            do_state_update();
+            game_id = message_parts[0];
+            you_are_white = (message_parts[1] === player_name);
+            send_message(socket, "ACK", game_id);
+            board.orientation(you_are_white ? "white" : "black");
+        } else if (action === "YOUR_MOVE") {
+            do_state_update();
+            your_move = true;
+        } else if (action === "GAME_ACKED") {
+            start_dead_reckon_time();
         }
-        //PLAYER_MOVED ea209b9eeb2a11e7a4ef48d705daa9ad a d2-d4 a b 278.94 300.00 rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b KQkq - 0 1
     }
 }
-//setTimeout(function() { your_func(); }, 5000);
-
-
-//GAME_STATE cce43542ea9e11e7b5ef48d705daa9ad b a 289.200165987 300.0 rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
-
-// function connect_to_server() {
-//     var user_name = document.getElementById("user_name").value;
-//     var tournament = document.getElementById("tournament").value;
-//     var button = document.getElementById("connect_button")
-//     var status_div =  document.getElementById("connection_status")
-//     var info_div =  document.getElementById("server_info")
-
-//     var socket = new WebSocket("ws://127.0.0.1:8081");
-//     var game_id;
-
-//     var board = ChessBoard('board', {orientation:'white'});
-
-//     function send_message(action, message) {
-//         var m = action.toUpperCase() + " " + message + "\n";
-//         console.log("Sending message " + m);
-//         socket.send(m);
-//     }
-
-//     socket.onopen = function (event) {
-//         button.disabled = true;
-//         status_div.innerHTML = "Connected";
-//         send_message("JOIN", tournament + " " + user_name);
-//     }
-
-//     socket.onmessage = function (event) {
-//         console.log("Got message: " + event.data);
-//         var parts = event.data.split(" ");
-//         var action = parts.shift();
-//         var message = parts.join(" ").trim();
-//         var message_parts = message.split(" ").filter(word => word.length > 0)
-
-//         if (action === "INFO") {
-//             info_div.innerHTML = message;
-//         } else if (action === "GAME_STARTED") {
-//             game_id = message_parts[0];
-//             send_message("ACK", game_id);
-//             if (message_parts[1] == user_name) {
-//                 board = ChessBoard('board', {orientation:'white'});
-//             } else {
-//                 board = ChessBoard('board', {orientation:'black'});
-//             }
-//         }
-//     }
-
-//     socket.onclose = function (event) {
-//         status_div.innerHTML = "Not connected";
-//         button.disabled = false;
-//     }
-//     console.log();
-// }
-
-
