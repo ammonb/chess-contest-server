@@ -5,6 +5,7 @@ import random
 import time
 import uuid
 import logging
+import codecs
 
 class PlayerState:
     CONNECTING          = 0
@@ -54,14 +55,57 @@ class BasePlayer(object):
 
 
 class Manager(object):
-    def __init__(self):
+    def __init__(self, history_file_name):
         self.tournaments = {}
+        self.load_from_history(history_file_name)
+        self.history_file = open(history_file_name, "a")
+
+    def save_game(self, game):
+        self.history_file.write((str(game.pgn)+"\n\n"))
+
+    def load_from_history(self, history_file):
+        inputfile = open(history_file, "r")
+        pgn = chess.pgn.read_game(inputfile)
+        while pgn:
+            for h in ['Site', 'Round']:
+                del pgn.headers[h]
+
+            tournament_name = pgn.headers['Event']
+            if not tournament_name in self.tournaments:
+                games_per_pair = int(pgn.headers['GamesPerPair'])
+                time_limit, increment = pgn.headers['TimeControl'].split("+")
+                time_limit = float(time_limit)
+                increment = float(increment)
+                self.create_tournament(tournament_name, games_per_pair, time_limit, increment)
+            tournament = self.tournaments[tournament_name]
+
+            wp, bp = BasePlayer(), BasePlayer()
+            wp.name = pgn.headers['White'].decode("utf-8")
+            bp.name = pgn.headers['Black'].decode("utf-8")
+            game = Game(tournament, wp, bp)
+            game.board = pgn.board()
+            for move in pgn.main_line():
+                game.board.push(move)
+
+            game.id = pgn.headers['GameID']
+            game.pgn = pgn
+
+            game.created_at = float(pgn.headers['Date'])
+            game.status = pgn.headers['Termination']
+            game.state = GameState.FINISHED
+            game.outcomes = [float(v) for v in pgn.headers['Result'].split("-")]
+            tournament.created_at = float(pgn.headers['EventDate'])
+            tournament.games[game.id] = game
+
+            pgn = chess.pgn.read_game(inputfile)
+
 
     def create_tournament(self, tournament_name, games_per_pair, time_limit, increment):
         tournament_name = tournament_name.strip()
         assert all ((c.isalnum() or c in "_-!") for c in tournament_name), "Bad character in tournament name"
         assert not tournament_name in self.tournaments, "Tournament of name %s already exists" % (tournament_name,)
-        self.tournaments[tournament_name] = Tournament(tournament_name, games_per_pair, time_limit, increment)
+        self.tournaments[tournament_name] = Tournament(self, tournament_name, games_per_pair, time_limit, increment)
+
 
     def player_connected(self, player):
         player.state = PlayerState.CONNECTING
@@ -74,7 +118,6 @@ class Manager(object):
         for game in player.observing_games[:]:
             game.remove_observer(player)
 
-
     def game_for_id(self, game_id):
         for t in self.tournaments.values():
             g = t.game_for_id(game_id)
@@ -84,7 +127,6 @@ class Manager(object):
 
     def message_recieved(self, player, action, message):
         parts = [s for s in message.split(" ") if len(s)]
-
         if action == "DISCONNECT":
             player.force_disconnect()
             return
@@ -99,6 +141,7 @@ class Manager(object):
             return
 
         if player.state == PlayerState.CONNECTING:
+            print parts
             assert action == "JOIN", "First message must be a JOIN or WATCH"
             assert len(parts) == 2, "Bad name or tournament"
             tournament_name = parts[0]
@@ -126,7 +169,8 @@ class Manager(object):
 
 
 class Tournament(object):
-    def __init__(self, name, games_per_pair, time_limit, increment):
+    def __init__(self, manager, name, games_per_pair, time_limit, increment):
+        self.manager = manager
         self.name = name
         self.games_per_pair = games_per_pair
         self.time_limit = time_limit
@@ -206,14 +250,13 @@ class Tournament(object):
                 game.send_clock_updates()
 
     def start_game(self, white_player, black_player):
-        game = Game(white_player, black_player, self.time_limit, self.increment)
-        game.pgn.headers['Event']  = self.name
+        game = Game(self, white_player, black_player)
         self.games[game.id] = game
         white_player.current_game = game
         black_player.current_game = game
         white_player.state = PlayerState.IN_GAME_NEEDS_ACK
         black_player.state = PlayerState.IN_GAME_NEEDS_ACK
-        game.send_game_started_message()
+        game.send_game_paired_message()
         logging.info("Starting game between %s and %s with id %s" % (white_player.name, black_player.name, game.id))
 
     def get_standings(self):
@@ -247,10 +290,11 @@ class Tournament(object):
 
 
 class Game(object):
-    def __init__(self, white_player, black_player, time_limit, increment):
-        self.time_limit = time_limit
-        self.increment = increment
-        self.times = [float(time_limit), float(time_limit)]
+    def __init__(self, tournament, white_player, black_player):
+        self.tournament = tournament
+        self.time_limit = tournament.time_limit
+        self.increment = tournament.increment
+        self.times = [float(self.time_limit), float(self.time_limit)]
         self.players = [white_player, black_player]
         self.outcomes = [0, 0]
         self.status = "*"
@@ -264,16 +308,24 @@ class Game(object):
         self.created_at = time.time()
 
         self.board = chess.Board()
+        self.observers = []
+
         self.pgn = chess.pgn.Game()
         self.pgn.setup(self.board)
         self.pgn.headers.clear()
         self.pgn.headers['Result'] = "*"
-        self.pgn.headers['White']  = white_player.name
-        self.pgn.headers['Black']  = black_player.name
+        self.pgn.headers['White']  = white_player.name.encode("utf-8")
+        self.pgn.headers['Black']  = black_player.name.encode("utf-8")
+        self.pgn.headers['Event']  = self.tournament.name
+        self.pgn.headers['GamesPerPair']  = self.tournament.games_per_pair
+        self.pgn.headers['TimeControl'] = "%s+%s" % (self.time_limit, self.increment)
+        self.pgn.headers['Date']  = self.created_at
+        self.pgn.headers['EventDate']  = tournament.created_at
+        self.pgn.headers['GameID'] = self.id
 
         self.pgn_node = self.pgn
 
-        self.observers = []
+
 
     def other_player(self, player):
         if player == self.players[0]:
@@ -363,9 +415,10 @@ class Game(object):
         self.status = "Resignation"
         self.game_over()
 
-    def send_game_started_message(self):
-        self.send_all("INFO", "Game started");
-        self.send_all("GAME_STARTED", self.game_state_str())
+    def send_game_paired_message(self):
+        self.send_all("INFO", "Paired with player for game");
+        message = "%s %s %s %0.2f %0.2f" % (self.id, self.players[0].name, self.players[1].name, self.time_limit, self.increment)
+        self.send_all("GAME_PAIRED", message)
 
     def player_disconnected(self, player):
         if player == self.players[0]:
@@ -393,6 +446,11 @@ class Game(object):
 
     def game_over(self):
         self.state = GameState.FINISHED
+
+        self.pgn.headers['Result'] = "%s-%s" % (self.outcomes[0], self.outcomes[1])
+        self.pgn.headers['Termination'] = self.status
+        self.tournament.manager.save_game(self)
+
         #send message
         message = "%s %s-%s %s" % (self.id, self.outcomes[0], self.outcomes[1], self.status)
 
@@ -409,7 +467,7 @@ class Game(object):
         player.state = PlayerState.IN_GAME_ACKED
         if all (p.state == PlayerState.IN_GAME_ACKED for p in self.players):
             self.send_all("INFO", "Both players have acknowledged game. Starting...")
-            self.send_all("GAME_ACKED", "")
+            self.send_all("GAME_STARTED", self.game_state_str())
 
             for p in self.players:
                 p.state = PlayerState.PLAYING
@@ -491,13 +549,11 @@ class Game(object):
             return
         else:
             self.board.push(engine_move)
-            self.pgn_node = self.pgn_node.add_variation(engine_move)
+            self.pgn_node = self.pgn_node.add_main_variation(engine_move)
 
         self.times = self.updated_times()
         self.cur_move_started_at = time.time()
         self.times[self.cur_index] += self.increment
-
-
 
         message = "%s %s %s %s" % (self.id, self.current_player().name, clean_move, " ".join(self.game_state_str().split(" ")[1:]))
         self.send_all("PLAYER_MOVED", message)
@@ -511,7 +567,7 @@ class Game(object):
 
         draw, reason = self.is_draw()
         if draw:
-            logging.info("Draw on game %s: " % (self.id, reason))
+            logging.info("Draw on game %s %s: " % (self.id, reason))
             self.outcomes = [0.5, 0.5]
             self.status = reason
             self.game_over();

@@ -19,12 +19,11 @@ parser = argparse.ArgumentParser(description='Chess server.')
 parser.add_argument("port", type=int, help="Port on which to listen for connections")
 parser.add_argument("--http_port", type=int, default=8080, help="Serve details on the active games over http on this port")
 parser.add_argument("--websocket_port", type=int, default=8081, help="Serve details on the active games over http on this port")
+parser.add_argument("--history_file", type=str, default='chess_server_history.pgn', help="File to record game history")
 
 args = parser.parse_args()
 
-manager = game_core.Manager()
-manager.create_tournament("a", 2, 60*5, 0)
-
+manager = game_core.Manager(args.history_file)
 
 class LineReceiverPlayer(game_core.BasePlayer):
     def __init__(self, connection):
@@ -32,7 +31,7 @@ class LineReceiverPlayer(game_core.BasePlayer):
         self.connection = connection
 
     def send_message(self, action, message):
-        self.connection.transport.write(self.format_message(action, message).encode('utf8'))
+        self.connection.transport.write(self.format_message(action, message).encode('utf-8'))
 
     def force_disconnect(self):
         self.connection.transport.loseConnection()
@@ -43,7 +42,7 @@ class  WebSocketPlayer(game_core.BasePlayer):
         self.connection = connection
 
     def send_message(self, action, message):
-        self.connection.sendMessage(self.format_message(action, message).encode('utf8'), False)
+        self.connection.sendMessage(self.format_message(action, message).encode('utf-8'), False)
 
     def force_disconnect(self):
         self.connection.sendClose()
@@ -65,7 +64,7 @@ class ChessLineProtocol(basic.LineReceiver):
         manager.player_disconnected(self.player)
 
     def lineReceived(self, line):
-        line = line.decode('utf8').strip()
+        line = line.decode('utf-8').strip()
         if len(line) != 0:
             try:
                 action, message = self.player.parse_message(line)
@@ -91,7 +90,7 @@ class ChessWebSocketsProtocol(WebSocketServerProtocol):
 
     def onMessage(self, payload, isBinary):
         try:
-            action, message = self.player.parse_message(payload.decode('utf8'))
+            action, message = self.player.parse_message(payload.decode('utf-8'))
             logging.info("Received message from websocket %s %s" % (action, message))
             manager.message_recieved(self.player, action, message)
         except AssertionError, e:

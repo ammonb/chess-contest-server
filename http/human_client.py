@@ -15,6 +15,7 @@ class HumanClient(Resource):
             return NoResource()
 
     def render_GET(self, request):
+        request.setHeader("Content-Type", "text/html; charset=utf-8")
         html = """
             <html>
             <head>
@@ -24,14 +25,16 @@ class HumanClient(Resource):
             </head>
             <body>
             <h2>Play in tournament {tournament_name}</h2>
+            <div id="join_div">
             Player name:
             <input type="text" id="player_name"><br>
-            <button type="button" id="join_button" onclick="join_tournament();">Join tournament</button><br><br>
+            <button type="button" onclick="join_tournament();">Join tournament</button><br><br>
+            </div>
 
             <div id="white_name"></div>
             <div id="black_name"></div>
             <div id="board" style="width: 400px"></div>
-            <h3><div id="status_div">Not connected</div></h3>
+            <h3><div id="status_div"></div></h3>
 
             <script src="js/jquery-3.2.1.js"></script>
             <script src="js/chessboard-0.3.0.js"></script>
@@ -41,9 +44,9 @@ class HumanClient(Resource):
                     var status_div = document.getElementById("status_div");
                     var white_name_div = document.getElementById("white_name");
                     var black_name_div = document.getElementById("black_name");
-                    var join_button = document.getElementById("join_button");
+                    var join_div = document.getElementById("join_div");
                     var player_name = document.getElementById("player_name").value;
-                    play_games("{tournament_name}", player_name, join_button, status_div, white_name_div, black_name_div);
+                    play_games("{tournament_name}", player_name, join_div, status_div, white_name_div, black_name_div);
                 }}
             </script>
             </body>

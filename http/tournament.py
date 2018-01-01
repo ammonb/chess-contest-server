@@ -48,6 +48,7 @@ class Tournament(Resource):
     def game_list(self, games):
         if len(games) == 0:
             return "<p>No games</p>"
+        games = sorted(games, key=lambda g:g.created_at, reverse=True)
 
         rtn = "<ul>"
         for g in games:
@@ -60,6 +61,8 @@ class Tournament(Resource):
 
 
     def render_GET(self, request):
+        request.setHeader("Content-Type", "text/html; charset=utf-8")
+
         html = "<html><head><h1>Tournament %s</h1></head><body>" % (self.tournament.name)
         html += "<p>Details</p>"
         html += self.details_table()

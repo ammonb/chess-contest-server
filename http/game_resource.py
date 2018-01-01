@@ -17,7 +17,10 @@ class GameResource(Resource):
 
 
     def render_GET(self, request):
-        title = "%s (white) vs. (black) %s, game in %s:%s" % (self.game.players[0].name, self.game.players[1].name, self.game.time_limit, self.game.increment)
+        request.setHeader("Content-Type", "text/html; charset=utf-8")
+
+        title = "%s (white) vs. (black) %s, game in %s+%s" % (self.game.players[0].name, self.game.players[1].name, self.game.time_limit, self.game.increment)
+        title = title.encode("utf-8")
         html = """
             <html>
             <head>
@@ -47,7 +50,7 @@ class GameResource(Resource):
             </html>
         """.format(title=title, game_id=self.game.id, game_pgn=str(self.game.pgn), game_status=self.game.outcome_str())
 
-        return html.encode('utf8')
+        return html
 
 
 

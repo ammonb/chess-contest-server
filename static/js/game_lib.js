@@ -8,14 +8,14 @@ function send_message(socket, action, message) {
 
 
 function observe_game(game_id, status_div, white_name_div, black_name_div) {
-    manage_game("", "", game_id, status_div, white_name_div, black_name_div, false);
+    manage_game("", "", game_id, status_div, white_name_div, black_name_div, null, false);
 }
 
-function play_games(tournament_name, player_name, join_button, status_div, white_name_div, black_name_div) {
-    manage_game(tournament_name, player_name, "", status_div, white_name_div, black_name_div, true);
+function play_games(tournament_name, player_name, join_div, status_div, white_name_div, black_name_div) {
+    manage_game(tournament_name, player_name, "", status_div, white_name_div, black_name_div, join_div, true);
 }
 
-function manage_game(tournament_name, player_name, game_id, status_div, white_name_div, black_name_div, play) {
+function manage_game(tournament_name, player_name, game_id, status_div, white_name_div, black_name_div, join_div, play) {
     var socket = new WebSocket("ws://" + window.location.hostname + ":8081");
 
     var white_to_move = false;
@@ -77,17 +77,19 @@ function manage_game(tournament_name, player_name, game_id, status_div, white_na
     socket.onopen = function (event) {
         if (play) {
             send_message(socket, "JOIN", tournament_name + " " + player_name);
+            status_div.innerHTML = "Waiting for pairing from server...";
         } else {
             send_message(socket, "WATCH", game_id);
         }
-        status_div.innerHTML = "Connected";
+        if (join_div) join_div.hidden = true;
+    }
+
+    socket.onclose = function (event) {
+        stop_dead_reckon_time();
+        alert("Connection with server lost");
     }
 
     function update_time_labels(message_parts) {
-
-
-
-
         white_name_div.innerHTML = white_name + ": " + Math.round(white_time * 100) / 100;
         black_name_div.innerHTML = black_name + ": " + Math.round(black_time * 100) / 100;
         if (white_to_move) {
@@ -137,10 +139,8 @@ function manage_game(tournament_name, player_name, game_id, status_div, white_na
             update_time_labels();
             board.position(fen);
             your_move = false;
-
             reset_dead_reckon_time();
-        } else if (action === "GAME_STARTED") {
-            do_state_update();
+        } else if (action === "GAME_PAIRED") {
             game_id = message_parts[0];
             you_are_white = (message_parts[1] === player_name);
             send_message(socket, "ACK", game_id);
@@ -148,7 +148,8 @@ function manage_game(tournament_name, player_name, game_id, status_div, white_na
         } else if (action === "YOUR_MOVE") {
             do_state_update();
             your_move = true;
-        } else if (action === "GAME_ACKED") {
+        } else if (action === "GAME_STARTED") {
+            do_state_update();
             start_dead_reckon_time();
         }
     }

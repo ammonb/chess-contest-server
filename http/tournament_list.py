@@ -47,10 +47,11 @@ class TournamentList (Resource):
             return NoResource()
 
     def render_GET(self, request):
-        tournament_html = ""
+        request.setHeader("Content-Type", "text/html; charset=utf-8")
 
+        tournament_html = ""
         if len(self.manager.tournaments):
-            tournaments = sorted(self.manager.tournaments.values(), key=lambda t:t.created_at)
+            tournaments = sorted(self.manager.tournaments.values(), key=lambda t:t.created_at, reverse=True)
 
             tournament_html = "<ul>"
             for t in tournaments:
