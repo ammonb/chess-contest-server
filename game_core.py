@@ -141,7 +141,6 @@ class Manager(object):
             return
 
         if player.state == PlayerState.CONNECTING:
-            print parts
             assert action == "JOIN", "First message must be a JOIN or WATCH"
             assert len(parts) == 2, "Bad name or tournament"
             tournament_name = parts[0]
