@@ -17,9 +17,9 @@ from http.root import HttpRoot
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d %I:%M:%S %p', level=logging.DEBUG)
 parser = argparse.ArgumentParser(description='Chess server.')
 parser.add_argument("port", type=int, help="Port on which to listen for connections")
-parser.add_argument("--http_port", type=int, default=8080, help="Serve details on the active games over http on this port")
-parser.add_argument("--websocket_port", type=int, default=8081, help="Serve details on the active games over http on this port")
-parser.add_argument("--history_file", type=str, default='chess_server_history.pgn', help="File to record game history")
+parser.add_argument("--http_port", type=int, default=80, help="Serve details on the active games over http on this port")
+parser.add_argument("--websocket_port", type=int, default=81, help="Serve details on the active games over http on this port")
+parser.add_argument("--history_file", type=str, default='static/game_history.pgn', help="File to record game history")
 
 args = parser.parse_args()
 

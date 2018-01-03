@@ -64,7 +64,11 @@ class Manager(object):
         self.history_file.write((str(game.pgn)+"\n\n"))
 
     def load_from_history(self, history_file):
-        inputfile = open(history_file, "r")
+        try:
+            inputfile = open(history_file, "r")
+        except IOError:
+            return
+
         pgn = chess.pgn.read_game(inputfile)
         while pgn:
             for h in ['Site', 'Round']:

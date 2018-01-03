@@ -16,7 +16,7 @@ function play_games(tournament_name, player_name, join_div, status_div, white_na
 }
 
 function manage_game(tournament_name, player_name, game_id, status_div, white_name_div, black_name_div, join_div, play) {
-    var socket = new WebSocket("ws://" + window.location.hostname + ":8081");
+    var socket = new WebSocket("ws://" + window.location.hostname + ":81");
 
     var white_to_move = false;
     var you_are_white = true;

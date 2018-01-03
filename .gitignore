@@ -1,3 +1,4 @@
+*.pgn
 *.pyc
 venv/
 venv/*
