@@ -3,6 +3,9 @@ from twisted.web.resource import NoResource
 from twisted.web.static import File
 from twisted.web.util import redirectTo
 
+import urllib
+import cgi
+
 from tournament import Tournament
 
 
@@ -15,12 +18,12 @@ class NewTournament(Resource):
     def render_POST(self, request):
         message = ""
         try:
-            name = request.args['name'][0].strip()
+            name = request.args['name'][0].strip().decode("utf-8")
             time_limit = float(request.args['time_limit'][0])
             increment = float(request.args['increment'][0])
             games_per_pair = int(request.args['games_per_pair'][0])
             self.manager.create_tournament(name, games_per_pair, time_limit, increment)
-            return redirectTo("/tournaments/%s" % (name,), request)
+            return redirectTo("/tournaments/%s" % (urllib.quote(name.encode("utf-8"), safe=''),), request)
 
         except ValueError, e:
             message = "Error: bad values for games_per_pair, time_limit or increment"
@@ -37,6 +40,7 @@ class TournamentList (Resource):
         self.manager = manager
 
     def getChild(self, name, request):
+        name = urllib.unquote(name).decode("utf-8")
         if name == '':
             return self
         elif name == 'new':
@@ -55,10 +59,10 @@ class TournamentList (Resource):
 
             tournament_html = "<ul>"
             for t in tournaments:
-                tournament_html += "<li><a href='/tournaments/%s'>%s</a> (%s games,  %s active players)</li>" % (t.name, t.name, len(t.all_games()), len(t.players))
+                tournament_html += "<li><a href='/tournaments/%s'>%s</a> (%s games,  %s active players)</li>" % (urllib.quote(t.name.encode("utf-8"), safe=''), cgi.escape(t.name).encode("utf-8"), len(t.all_games()), len(t.players))
             tournament_html += "</ul>"
         else:
-            tournament_html = "<h2>No Tournaments :(</h2>"
+            tournament_html = "<p>No Tournaments :(</p>"
 
 
         form_html = """
@@ -74,5 +78,5 @@ class TournamentList (Resource):
             <input type="submit" value="Submit">
         </form>"""
 
-        html = "<html><head><h1>Tournaments</h1></head><body>%s<h2>Create new tournament</h2>%s</body></html>" % (tournament_html, form_html)
-        return html.encode('utf8')
+        html = "<html><head><h1>Chess Server</h1></head><body><h2>Tournaments</h2>%s<h2>Create new tournament</h2>%s</body></html>" % (tournament_html, form_html)
+        return html

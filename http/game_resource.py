@@ -1,8 +1,7 @@
 from twisted.web.resource import Resource
 from twisted.web.resource import NoResource
 from twisted.web.static import File
-
-
+import cgi
 
 class GameResource(Resource):
     def __init__(self, game):
@@ -21,6 +20,8 @@ class GameResource(Resource):
 
         title = "%s (white) vs. (black) %s, game in %s+%s" % (self.game.players[0].name, self.game.players[1].name, self.game.time_limit, self.game.increment)
         title = title.encode("utf-8")
+        title = cgi.escape(title)
+
         html = """
             <html>
             <head>
@@ -48,7 +49,7 @@ class GameResource(Resource):
             </script>
             </body>
             </html>
-        """.format(title=title, game_id=self.game.id, game_pgn=str(self.game.pgn), game_status=self.game.outcome_str())
+        """.format(title=title, game_id=self.game.id, game_pgn=cgi.escape(str(self.game.pgn)), game_status=self.game.outcome_str())
 
         return html
 

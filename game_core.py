@@ -74,7 +74,7 @@ class Manager(object):
             for h in ['Site', 'Round']:
                 del pgn.headers[h]
 
-            tournament_name = pgn.headers['Event']
+            tournament_name = pgn.headers['Event'].decode("utf-8")
             if not tournament_name in self.tournaments:
                 games_per_pair = int(pgn.headers['GamesPerPair'])
                 time_limit, increment = pgn.headers['TimeControl'].split("+")
@@ -106,7 +106,8 @@ class Manager(object):
 
     def create_tournament(self, tournament_name, games_per_pair, time_limit, increment):
         tournament_name = tournament_name.strip()
-        assert all ((c.isalnum() or c in "_-!") for c in tournament_name), "Bad character in tournament name"
+        assert len(tournament_name) > 0 and len(tournament_name) < 50, "Tournament name most be between 1 and 50 characters"
+        assert not " " in tournament_name, "Bad tournament name"
         assert not tournament_name in self.tournaments, "Tournament of name %s already exists" % (tournament_name,)
         self.tournaments[tournament_name] = Tournament(self, tournament_name, games_per_pair, time_limit, increment)
 
@@ -147,8 +148,11 @@ class Manager(object):
         if player.state == PlayerState.CONNECTING:
             assert action == "JOIN", "First message must be a JOIN or WATCH"
             assert len(parts) == 2, "Bad name or tournament"
+            assert len(parts[1]) < 50, "Player name too long"
+
             tournament_name = parts[0]
             player.name = parts[1]
+
             assert tournament_name in self.tournaments , "Tournament %s not found" % (tournament_name,)
             self.tournaments[tournament_name].add_player(player)
             player.state = PlayerState.WAITING_PAIRING
@@ -319,7 +323,7 @@ class Game(object):
         self.pgn.headers['Result'] = "*"
         self.pgn.headers['White']  = white_player.name.encode("utf-8")
         self.pgn.headers['Black']  = black_player.name.encode("utf-8")
-        self.pgn.headers['Event']  = self.tournament.name
+        self.pgn.headers['Event']  = self.tournament.name.encode("utf-8")
         self.pgn.headers['GamesPerPair']  = self.tournament.games_per_pair
         self.pgn.headers['TimeControl'] = "%s+%s" % (self.time_limit, self.increment)
         self.pgn.headers['Date']  = self.created_at

@@ -1,6 +1,7 @@
 from twisted.web.resource import Resource
 from twisted.web.resource import NoResource
 from twisted.web.static import File
+from twisted.web.util import redirectTo
 
 from tournament_list import TournamentList
 
@@ -20,4 +21,4 @@ class HttpRoot(Resource):
             return NoResource()
 
     def render_GET(self, request):
-        return "<html><h1>Triplebyte Chess Server!</h1><p>Tournaments are <a href='/tournaments'>here</a></p></html>"
+        return redirectTo("/tournaments", request)

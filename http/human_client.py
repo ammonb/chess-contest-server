@@ -1,8 +1,8 @@
 from twisted.web.resource import Resource
 from twisted.web.resource import NoResource
 from twisted.web.static import File
-
-
+import cgi
+import json
 class HumanClient(Resource):
     def __init__(self, tournament):
         self.tournament = tournament
@@ -46,12 +46,12 @@ class HumanClient(Resource):
                     var black_name_div = document.getElementById("black_name");
                     var join_div = document.getElementById("join_div");
                     var player_name = document.getElementById("player_name").value;
-                    play_games("{tournament_name}", player_name, join_div, status_div, white_name_div, black_name_div);
+                    play_games({tournament_name_json}, player_name, join_div, status_div, white_name_div, black_name_div);
                 }}
             </script>
             </body>
             </html>
-        """.format(tournament_name=self.tournament.name)
+        """.format(tournament_name=cgi.escape(self.tournament.name).encode("utf-8"), tournament_name_json=json.dumps(self.tournament.name))
 
         # var status_div = document.getElementById("status_div");
         # var white_name_div = document.getElementById("white_name");
@@ -59,4 +59,4 @@ class HumanClient(Resource):
         # var pgn_div = document.getElementById("game_pgn");
         # observe_game(board, "{game_id}", status_div, white_name_div, black_name_div, pgn_div);
 
-        return html.encode('utf8')
+        return html

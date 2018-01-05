@@ -90,8 +90,8 @@ function manage_game(tournament_name, player_name, game_id, status_div, white_na
     }
 
     function update_time_labels(message_parts) {
-        white_name_div.innerHTML = white_name + ": " + Math.round(white_time * 100) / 100;
-        black_name_div.innerHTML = black_name + ": " + Math.round(black_time * 100) / 100;
+        white_name_div.textContent = white_name + ": " + Math.round(white_time * 100) / 100;
+        black_name_div.textContent = black_name + ": " + Math.round(black_time * 100) / 100;
         if (white_to_move) {
             white_name_div.innerHTML = "<b>" + white_name_div.innerHTML + "</b>"
         } else {
