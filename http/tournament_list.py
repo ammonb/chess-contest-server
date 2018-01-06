@@ -4,7 +4,7 @@ from twisted.web.static import File
 from twisted.web.util import redirectTo
 
 import urllib
-import cgi
+import util
 
 from tournament import Tournament
 
@@ -23,7 +23,7 @@ class NewTournament(Resource):
             increment = float(request.args['increment'][0])
             games_per_pair = int(request.args['games_per_pair'][0])
             self.manager.create_tournament(name, games_per_pair, time_limit, increment)
-            return redirectTo("/tournaments/%s" % (urllib.quote(name.encode("utf-8"), safe=''),), request)
+            return redirectTo("/tournaments/%s" % (util.url_escape(name),), request)
 
         except ValueError, e:
             message = "Error: bad values for games_per_pair, time_limit or increment"
@@ -59,7 +59,7 @@ class TournamentList (Resource):
 
             tournament_html = "<ul>"
             for t in tournaments:
-                tournament_html += "<li><a href='/tournaments/%s'>%s</a> (%s games,  %s active players)</li>" % (urllib.quote(t.name.encode("utf-8"), safe=''), cgi.escape(t.name).encode("utf-8"), len(t.all_games()), len(t.players))
+                tournament_html += "<li><a href='/tournaments/%s'>%s</a> (%s games,  %s active players)</li>" % (util.url_escape(t.name), util.html_escape(t.name), len(t.all_games()), len(t.players))
             tournament_html += "</ul>"
         else:
             tournament_html = "<p>No Tournaments :(</p>"

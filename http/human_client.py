@@ -1,7 +1,7 @@
 from twisted.web.resource import Resource
 from twisted.web.resource import NoResource
 from twisted.web.static import File
-import cgi
+import util
 import json
 class HumanClient(Resource):
     def __init__(self, tournament):
@@ -51,7 +51,7 @@ class HumanClient(Resource):
             </script>
             </body>
             </html>
-        """.format(tournament_name=cgi.escape(self.tournament.name).encode("utf-8"), tournament_name_json=json.dumps(self.tournament.name))
+        """.format(tournament_name=util.html_escape(self.tournament.name), tournament_name_json=json.dumps(self.tournament.name))
 
         # var status_div = document.getElementById("status_div");
         # var white_name_div = document.getElementById("white_name");
