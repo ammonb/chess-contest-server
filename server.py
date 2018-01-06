@@ -79,6 +79,8 @@ class ChessLineProtocol(basic.LineReceiver):
 
 
 class ChessWebSocketsProtocol(WebSocketServerProtocol):
+    def __init__(self):
+        self.player = None
 
     def onConnect(self, request):
         pass
@@ -101,7 +103,8 @@ class ChessWebSocketsProtocol(WebSocketServerProtocol):
 
     def onClose(self, wasClean, code, reason):
         logging.info("WebSocket client disconnected: %s" % (self.transport.getPeer(),))
-        manager.player_disconnected(self.player)
+        if self.player:
+            manager.player_disconnected(self.player)
 
 logging.info("Starting chess server on port %s" % (args.port,))
 
