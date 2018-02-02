@@ -190,8 +190,8 @@ class Tournament(object):
         assert len(message), "No game id provided"
         gameid = message.strip().split(" ")[0]
 
-        if  gameid != player.current_game.id:
-            m = "Game id in message (%s) does not match id of active game (%s)" % (gameid, player.current_game.id)
+        if  (not player.current_game) or (gameid != player.current_game.id):
+            m = "Game id in message (%s) does not match id of active game" % (gameid,)
             if player.state in [PlayerState.IN_GAME_NEEDS_ACK, PlayerState.WAITING_PAIRING]:
                 player.send_message("INFO", "Ignoring message of type %s. %s" % (action, m))
                 return
@@ -372,8 +372,14 @@ class Game(object):
     def check_timeout(self):
         if self.state == GameState.NEEDS_ACK:
             if time.time() - self.created_at > WAIT_BEFORE_ABORTING:
+                to_remove = [p for p in self.players if p.state != PlayerState.IN_GAME_ACKED]
                 logging.info("Game %s timed out before ack. Aborting..." % self.id)
                 self.abort("Not acked by both players within time limit")
+
+                for p in to_remove:
+                    p.send_message("INFO", "You did not ack a game in time. You will be terminated.")
+                    p.force_disconnect()
+
                 return False
         elif self.state == GameState.IN_PROGRESS:
             thinking_time = time.time() - self.cur_move_started_at
