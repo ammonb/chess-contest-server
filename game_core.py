@@ -520,7 +520,13 @@ class Game(object):
             else:
                 return "e8-c8"
 
-        move[:-2].lower()
+        move = move.lower()
+        if not "-" in move:
+            move = move[:2] + "-" + move[2:]
+
+        if not '=' in move and len(move) > 5:
+            move = move[:-1] + "=" + move[-1]
+
         if move[-2] == "=":
             move = move[:-2] + move[-2:].upper()
 
