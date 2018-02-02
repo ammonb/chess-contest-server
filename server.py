@@ -46,6 +46,7 @@ class  WebSocketPlayer(game_core.BasePlayer):
 
     def force_disconnect(self):
         self.connection.sendClose()
+        manager.player_disconnected(self)
 
 class ChessLineProtocol(basic.LineReceiver):
 
