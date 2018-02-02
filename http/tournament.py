@@ -18,6 +18,14 @@ class Tournament(Resource):
             return self
         elif name == 'play':
             return HumanClient(self.tournament)
+        elif name.startswith("force_disconnect__"):
+            player_name = name[len("force_disconnect__"):]
+            print "Removing player %s" % (player_name)
+            if player_name in self.tournament.players:
+                player = self.tournament.players[player_name]
+                player.force_disconnect()
+                self.tournament.manager.player_disconnected(player)
+            return self
         else:
             if not name in self.tournament.games:
                 return NoResource("No game with id %s found" % name)

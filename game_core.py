@@ -233,7 +233,6 @@ class Tournament(object):
         finished = [g for g in self.games.values() if g.state == GameState.FINISHED]
         return len([g for g in finished if g.players[0].name == player1.name and g.players[1].name == player2.name])
 
-
     def update_pairings(self):
         free_players = [p for p in self.players.values() if p.state == PlayerState.WAITING_PAIRING and time.time() - p.last_game_done > WAIT_BETWEEN_GAMES]
         random.shuffle(free_players)

@@ -45,8 +45,8 @@ class  WebSocketPlayer(game_core.BasePlayer):
         self.connection.sendMessage(self.format_message(action, message).encode('utf-8'), False)
 
     def force_disconnect(self):
-        self.connection.sendClose()
-        manager.player_disconnected(self)
+        self.connection.transport.loseConnection()
+        #manager.player_disconnected(self)
 
 class ChessLineProtocol(basic.LineReceiver):
 
@@ -82,6 +82,7 @@ class ChessLineProtocol(basic.LineReceiver):
 class ChessWebSocketsProtocol(WebSocketServerProtocol):
     def __init__(self):
         self.player = None
+        self.is_closed = True
 
     def onConnect(self, request):
         pass
