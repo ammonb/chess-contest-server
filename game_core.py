@@ -6,6 +6,7 @@ import time
 import uuid
 import logging
 import codecs
+import collections
 
 class PlayerState:
     CONNECTING          = 0
@@ -22,6 +23,40 @@ class GameState:
 
 WAIT_BEFORE_ABORTING = 20
 WAIT_BETWEEN_GAMES = 5
+
+
+
+def is_threefold_repetition(self):
+    """
+    We want this server to end a game at the point that a 3-fold repetition occurs.
+    The actual rules of chess are more complicated (the game is over after 5-fold
+    repetition, or when one of the players claims a draw and the next move would make
+    at least a 3-fold rep). This is a monkey patch to add the behavior we want.
+    """
+    transposition_key = self._transposition_key()
+    transpositions = collections.Counter()
+    transpositions.update((transposition_key, ))
+
+    # Count positions.
+    switchyard = collections.deque()
+    while self.move_stack:
+        move = self.pop()
+        switchyard.append(move)
+
+        if self.is_irreversible(move):
+            break
+
+        transpositions.update((self._transposition_key(), ))
+
+    while switchyard:
+        self.push(switchyard.pop())
+
+    # Threefold repetition occured.
+    if transpositions[transposition_key] >= 3:
+        return True
+    return False
+
+chess.Board.is_threefold_repetition = is_threefold_repetition
 
 #base class for various types of connections to the server
 class BasePlayer(object):
@@ -542,7 +577,7 @@ class Game(object):
             return True, "Stalemate"
         if self.board.is_insufficient_material():
             return True, "Insufficient material"
-        if self.board.can_claim_threefold_repetition():
+        if self.board.is_threefold_repetition():
             return True, "Threefold repetition"
         if self.board.can_claim_fifty_moves():
             return True, "Fifty moves without capture or pawn push"
