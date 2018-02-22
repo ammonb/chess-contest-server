@@ -132,7 +132,7 @@ class Manager(object):
             game.created_at = float(pgn.headers['Date'])
             game.status = pgn.headers['Termination']
             game.state = GameState.FINISHED
-            game.outcomes = [float(v) for v in pgn.headers['Result'].split("-")]
+            game.outcomes = [0.5 if v == "1/2" else float(v) for v in pgn.headers['Result'].split("-")]
             tournament.created_at = float(pgn.headers['EventDate'])
             tournament.games[game.id] = game
 
@@ -494,7 +494,9 @@ class Game(object):
     def game_over(self):
         self.state = GameState.FINISHED
 
-        self.pgn.headers['Result'] = "%s-%s" % (self.outcomes[0], self.outcomes[1])
+
+
+        self.pgn.headers['Result'] = "%s-%s" % ["1/2" if v == 0.5 else str(v) for v in  self.outcomes]
         self.pgn.headers['Termination'] = self.status
         self.tournament.manager.save_game(self)
 
