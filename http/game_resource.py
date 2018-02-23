@@ -37,16 +37,14 @@ class GameResource(Resource):
             <div id="black_name"></div>
             <div id="board" style="width: 400px"></div>
             <h3><div id="status_div">{game_status}</div></h3>
+            <div id="chat_div" style="overflow:scroll; height:100px;"></div>
             <pre><div id="game_pgn" style="width: 400px">{game_pgn}</div></pre>
             <script src="js/jquery-3.2.1.js"></script>
             <script src="js/chessboard-0.3.0.js"></script>
             <script src="js/game_lib.js"></script>
             <script>
                 window.onload = function() {{
-                    var status_div = document.getElementById("status_div");
-                    var white_name_div = document.getElementById("white_name");
-                    var black_name_div = document.getElementById("black_name");
-                    observe_game("{game_id}", status_div, white_name_div, black_name_div);
+                    observe_game("{game_id}");
                 }}
             </script>
             </body>

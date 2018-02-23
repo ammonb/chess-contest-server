@@ -400,6 +400,8 @@ class Game(object):
                 assert " " in message
                 _, move = message.split(" ", 1)
                 self.make_move(player, move.strip())
+            elif action == "SAY":
+                self.send_all("SAID", player.name + " " + " ".join(message.split()[1:]))
             else:
                 player.send_message("INFO", "ignoring message type %s." % (action))
 
@@ -496,7 +498,7 @@ class Game(object):
 
 
 
-        self.pgn.headers['Result'] = "%s-%s" % ["1/2" if v == 0.5 else str(v) for v in  self.outcomes]
+        self.pgn.headers['Result'] = "%s-%s" % tuple(["1/2" if v == 0.5 else str(v) for v in  self.outcomes])
         self.pgn.headers['Termination'] = self.status
         self.tournament.manager.save_game(self)
 

@@ -7,15 +7,21 @@ function send_message(socket, action, message) {
 }
 
 
-function observe_game(game_id, status_div, white_name_div, black_name_div) {
-    manage_game("", "", game_id, status_div, white_name_div, black_name_div, null, false);
+function observe_game(game_id) {
+    manage_game("", "", game_id, false);
 }
 
-function play_games(tournament_name, player_name, join_div, status_div, white_name_div, black_name_div) {
-    manage_game(tournament_name, player_name, "", status_div, white_name_div, black_name_div, join_div, true);
+function play_games(tournament_name, player_name) {
+    manage_game(tournament_name, player_name, "", true);
 }
 
-function manage_game(tournament_name, player_name, game_id, status_div, white_name_div, black_name_div, join_div, play) {
+function manage_game(tournament_name, player_name, game_id, play) {
+    var chat_div = document.getElementById("chat_div");
+    var status_div = document.getElementById("status_div");
+    var white_name_div = document.getElementById("white_name");
+    var black_name_div = document.getElementById("black_name");
+    var join_div = document.getElementById("join_div");
+
     var socket = new WebSocket("ws://" + window.location.hostname + ":81");
 
     var white_to_move = false;
@@ -151,6 +157,14 @@ function manage_game(tournament_name, player_name, game_id, status_div, white_na
         } else if (action === "GAME_STARTED") {
             do_state_update();
             start_dead_reckon_time();
+        } else if (action === "SAID") {
+            var node = document.createElement("DIV");
+            var name = document.createElement("B");
+            name.textContent = parts[0] + ": ";
+            var text = document.createTextNode(parts.slice(1).join(" ").trim());
+            node.appendChild(name);
+            node.appendChild(text);
+            chat_div.appendChild(node);
         }
     }
 }

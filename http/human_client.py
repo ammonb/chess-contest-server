@@ -35,18 +35,15 @@ class HumanClient(Resource):
             <div id="black_name"></div>
             <div id="board" style="width: 400px"></div>
             <h3><div id="status_div"></div></h3>
+            <div id="chat_div" style="overflow:scroll; height:100px;"></div>
 
             <script src="js/jquery-3.2.1.js"></script>
             <script src="js/chessboard-0.3.0.js"></script>
             <script src="js/game_lib.js"></script>
             <script>
                 function join_tournament() {{
-                    var status_div = document.getElementById("status_div");
-                    var white_name_div = document.getElementById("white_name");
-                    var black_name_div = document.getElementById("black_name");
-                    var join_div = document.getElementById("join_div");
                     var player_name = document.getElementById("player_name").value;
-                    play_games({tournament_name_json}, player_name, join_div, status_div, white_name_div, black_name_div);
+                    play_games({tournament_name_json}, player_name, join_div);
                 }}
             </script>
             </body>
