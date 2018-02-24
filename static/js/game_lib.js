@@ -165,6 +165,7 @@ function manage_game(tournament_name, player_name, game_id, play) {
             node.appendChild(name);
             node.appendChild(text);
             chat_div.appendChild(node);
+            chat_div.scrollTop = chat_div.scrollHeight;
         }
     }
 }
