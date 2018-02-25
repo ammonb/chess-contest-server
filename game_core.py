@@ -222,8 +222,20 @@ class Tournament(object):
         self.created_at = time.time()
 
     def message_recieved(self, player, action, message):
+        parts = message.strip().split(" ")
+
+        if action == "SAY":
+            assert len(message), "No say recipient"
+            recipient = parts[0]
+            if not recipient in self.players:
+                player.send_message("INFO", "Player %s not in tournament" % (recipient,))
+            else:
+                for p in [player, self.players[recipient]]:
+                    p.send_message("SAID", player.name + " " + " ".join(parts[1:]))
+            return
+
         assert len(message), "No game id provided"
-        gameid = message.strip().split(" ")[0]
+        gameid = parts[0]
 
         if  (not player.current_game) or (gameid != player.current_game.id):
             m = "Game id in message (%s) does not match id of active game" % (gameid,)
@@ -400,8 +412,6 @@ class Game(object):
                 assert " " in message
                 _, move = message.split(" ", 1)
                 self.make_move(player, move.strip())
-            elif action == "SAY":
-                self.send_all("SAID", self.id + " " + player.name + " " + " ".join(message.split()[1:]))
             else:
                 player.send_message("INFO", "ignoring message type %s." % (action))
 

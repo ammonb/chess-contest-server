@@ -160,8 +160,8 @@ function manage_game(tournament_name, player_name, game_id, play) {
         } else if (action === "SAID") {
             var node = document.createElement("DIV");
             var name = document.createElement("B");
-            name.textContent = parts[1] + ": ";
-            var text = document.createTextNode(parts.slice(2).join(" ").trim());
+            name.textContent = parts[0] + ": ";
+            var text = document.createTextNode(parts.slice(1).join(" ").trim());
             node.appendChild(name);
             node.appendChild(text);
             chat_div.appendChild(node);
