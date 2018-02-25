@@ -401,7 +401,7 @@ class Game(object):
                 _, move = message.split(" ", 1)
                 self.make_move(player, move.strip())
             elif action == "SAY":
-                self.send_all("SAID", player.name + " " + " ".join(message.split()[1:]))
+                self.send_all("SAID", self.id + " " + player.name + " " + " ".join(message.split()[1:]))
             else:
                 player.send_message("INFO", "ignoring message type %s." % (action))
 

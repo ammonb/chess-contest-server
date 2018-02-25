@@ -70,4 +70,12 @@ After a game is over, a connected client may be paired with another client for a
 The protocol also support observing a game. To observe a game, simply send a `WATCH` command at any time.
 `WATCH $game_id`. After sending a watch command, a client will receive one `GAME_STATE` message (identical in format to the `GAME_STARTED` message). After this they will receive all `PLAYER_MOVED`, `CLOCK_UPDATE` and `GAME_OVER` messages for that game.
 
+## Trash talk / chat
+At any point in a game, a participant may send a `SAY` message
+
+`SAY $game_id $message`
+
+This will result in every player (including the sending player) receiving a `SAID` message
+
+`SAID $game_id $player $message`
 

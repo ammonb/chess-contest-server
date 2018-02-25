@@ -1,6 +1,6 @@
 # Triplebyte Chess Server
 
-Server is live [here](http://54.173.172.97/).
+Server is live [here](http://chess.triplebyte.com/).
 
 Protocol spec is [here](https://github.com/ammonb/chess-contest-server/blob/master/protocol.md).
 
