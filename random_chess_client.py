@@ -2,16 +2,20 @@ import logging
 import socket
 import argparse
 import random
+import chess
 
 logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d %I:%M:%S %p', level=logging.DEBUG)
 
-def random_chess_move():
-    def random_square():
-        f = "abcdefgh"[random.randint(0, 7)]
-        r = random.randint(1, 8)
-        return "%s%s" % (f, r)
-    return "%s-%s" % (random_square(), random_square())
 
+def get_move(fen):
+    # parse fen into python-chess object
+    board = chess.Board(fen=fen)
+
+    # all legal moves
+    legal_moves = list(board.legal_moves)
+
+    #return a random one
+    return random.choice(legal_moves)
 
 class Client(object):
     def __init__(self, host, port, tournament_name, player_name):
@@ -94,17 +98,18 @@ class Client(object):
             logging.info(message)
 
         elif action == "YOUR_MOVE":
-            if (len(best_moves)) {
-                move = best_moves.pop()
-                self.send_message("MOVE", "%s %s" % (self.game_id, move))
-            } else {
-                # server is telling us we need to move!
-                self.send_message("MOVE", "%s %s" % (self.game_id, random_chess_move()))
-            }
+            white_player = parts[1]
+            black_player = parts[2]
+            white_time   = parts[3]
+            black_time   = parts[4]
+            fen          = " ".join(parts[5:])
+
+            move = get_move(fen)
+            self.send_message("MOVE", "%s %s" % (self.game_id, str(move)))
+
 
         elif action == "GAME_OVER":
             logging.info("Game over: %s" % (message))
-
 
 parser = argparse.ArgumentParser(description='Chess client.')
 parser.add_argument("host", type=str, help="Host to connect to")
