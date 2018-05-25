@@ -106,6 +106,7 @@ class Client(object):
 
             move = get_move(fen)
             self.send_message("MOVE", "%s %s" % (self.game_id, str(move)))
+            self.send_message("SAY", "%s %s" % (self.game_id, str(move)))
 
 
         elif action == "GAME_OVER":

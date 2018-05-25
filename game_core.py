@@ -232,6 +232,10 @@ class Tournament(object):
             else:
                 for p in [player, self.players[recipient]]:
                     p.send_message("SAID", player.name + " " + " ".join(parts[1:]))
+                if self.players[recipient].current_game:
+                    for p in self.players[recipient].current_game.observers:
+                        p.send_message("SAID", player.name + " " + " ".join(parts[1:]))
+
             return
 
         assert len(message), "No game id provided"
